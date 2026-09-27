@@ -165,6 +165,68 @@ public class CipherSelfTest {
         System.out.println("    单次解密耗时 " + ms + " ms");
         check(ms < 30_000, "解密低于30秒 (实际" + ms + "ms)");
 
+        System.out.println("== 11. 高级模式 (多密钥 Luanyu v2) ==");
+        String[] k3 = {"Xk7#9pQm", "alpha2026", "381746"};
+        String advCt = CryptoCore.encryptMulti(k3, "三把密钥保护的机密");
+        check(CryptoCore.decryptMulti(k3, advCt).equals("三把密钥保护的机密"), "3 把密钥往返");
+        // 顺序敏感
+        String[] k3reordered = {"alpha2026", "Xk7#9pQm", "381746"};
+        expectReject(() -> CryptoCore.decryptMulti(k3reordered, advCt), "顺序不同必须失败");
+        // 缺一把
+        expectReject(() -> CryptoCore.decryptMulti(new String[]{"Xk7#9pQm", "alpha2026"}, advCt), "缺一把密钥");
+        // 多一把
+        String[] k4 = {"Xk7#9pQm", "alpha2026", "381746", "extra99"};
+        expectReject(() -> CryptoCore.decryptMulti(k4, advCt), "多一把密钥");
+        // 错一把
+        String[] k3wrong = {"Xk7#9pQm", "alpha2027", "381746"};
+        expectReject(() -> CryptoCore.decryptMulti(k3wrong, advCt), "其中一把错误");
+        // 基础模式解密多密钥乱语 -> 明确报错
+        expectReject(() -> CryptoCore.decrypt("Xk7#9pQm", advCt), "基础模式解密 v2 乱语");
+        // 高级模式解密基础 v1 乱语(单把>=6位) -> 应成功(自动识别)
+        String v1ct = CryptoCore.encrypt("Xk7#9pQm", "基础模式旧密文");
+        check(CryptoCore.decryptMulti(new String[]{"Xk7#9pQm"}, v1ct).equals("基础模式旧密文"),
+                "高级模式向后兼容解密 v1");
+        // v2 单把密钥
+        String adv1 = CryptoCore.encryptMulti(new String[]{"abcdef"}, "单把高级");
+        check(CryptoCore.decryptMulti(new String[]{"abcdef"}, adv1).equals("单把高级"), "v2 单密钥往返");
+        check(CryptoCore.decrypt("abcdef", adv1).equals("单把高级"), "v2 单密钥可被基础模式解密");
+        // 密钥数量边界
+        String[] k10 = new String[10];
+        for (int i = 0; i < 10; i++) k10[i] = "key" + (i * 17 + 31);
+        String adv10 = CryptoCore.encryptMulti(k10, "十把密钥的极致保护");
+        check(CryptoCore.decryptMulti(k10, adv10).equals("十把密钥的极致保护"), "10 把密钥往返");
+        String[] k11 = new String[11];
+        System.arraycopy(k10, 0, k11, 0, 10);
+        k11[10] = "extra1";
+        expectReject(() -> CryptoCore.encryptMulti(k11, "x"), "11 把密钥拒绝");
+        expectReject(() -> CryptoCore.encryptMulti(new String[]{}, "x"), "0 把密钥拒绝");
+        expectReject(() -> CryptoCore.encryptMulti(new String[]{"abc"}, "x"), "单把 3 位拒绝");
+        // 每把 4 位可用(高级模式规则)
+        String advMin = CryptoCore.encryptMulti(new String[]{"a1b2", "c3d4"}, "短但组合强");
+        check(CryptoCore.decryptMulti(new String[]{"a1b2", "c3d4"}, advMin).equals("短但组合强"),
+                "每把 4 位可用");
+        // 空行忽略
+        String[] kWithBlanks = {"Xk7#9pQm", "", "  ", "alpha2026", "381746"};
+        check(CryptoCore.decryptMulti(kWithBlanks, advCt).equals("三把密钥保护的机密"), "空行被忽略");
+        // v2 帧头(含 n)被篡改 -> 拒绝
+        byte[] advFrame = CryptoCore.decode(advCt);
+        byte[] tamperedN = advFrame.clone();
+        tamperedN[3] ^= 0x01;
+        final String advTampered = CryptoCore.encode(tamperedN);
+        expectReject(() -> CryptoCore.decryptMulti(k3, advTampered), "篡改密钥数 n 字节");
+        // 同文不同密(v2)
+        String advCt2 = CryptoCore.encryptMulti(k3, "三把密钥保护的机密");
+        check(!advCt.equals(advCt2), "v2 两次密文不同");
+        // 组合密钥空间
+        double log10 = CryptoCore.combinedLog10(k3);
+        String fmt = CryptoCore.formatLog10(log10);
+        System.out.println("    3 把密钥(" + String.join("+", k3) + ") 组合空间 -> " + fmt
+                + " (log10=" + String.format("%.1f", log10) + ")");
+        check(log10 > 12, "3 把混合密钥组合空间 > 10^12");
+        check(CryptoCore.formatLog10(160.5).contains("10^"), "超大数科学计数: " + CryptoCore.formatLog10(160.5));
+        // v1 旧密文仍可解(回归)
+        check(CryptoCore.decrypt(KEY, CryptoCore.encrypt(KEY, "v1回归")).equals("v1回归"), "v1 回归");
+
         System.out.println();
         System.out.println("========================================");
         System.out.println("结果: " + passed + " 通过, " + failed + " 失败");

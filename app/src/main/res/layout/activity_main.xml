@@ -62,15 +62,38 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:text="@string/key_label"
-            android:textColor="@color/textDim"
-            android:textSize="13sp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/lblKey"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/key_label"
+                android:textColor="@color/textDim"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnAdvanced"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_mode"
+                android:minWidth="0dp"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="@string/btn_advanced"
+                android:textColor="@color/mode_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/rowKeySingle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
@@ -105,6 +128,24 @@
                 android:textColor="@color/textDim"
                 android:textSize="13sp" />
         </LinearLayout>
+
+        <EditText
+            android:id="@+id/editKeys"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_field"
+            android:gravity="top|start"
+            android:hint="@string/keys_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:maxLines="10"
+            android:minHeight="96dp"
+            android:textColor="@color/text"
+            android:textColorHint="@color/textDim"
+            android:textSize="14sp"
+            android:typeface="monospace"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/txtKeySpace"

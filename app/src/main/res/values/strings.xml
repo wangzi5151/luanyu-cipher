@@ -5,8 +5,10 @@
     <string name="subtitle">密钥 + 原文 → 谁也看不懂的乱语</string>
     <string name="mode_encrypt">加密</string>
     <string name="mode_decrypt">解密</string>
-    <string name="key_label">密钥（双方私下约定的数字或字母，至少 6 位）</string>
-    <string name="key_hint">例：Xk7#9pQm</string>
+    <string name="key_label">密钥（双方私下约定的数字或字母）</string>
+    <string name="key_hint">例：Xk7#9pQm（至少 6 位）</string>
+    <string name="btn_advanced">多密钥 ×10</string>
+    <string name="keys_hint">每行一把密钥，最多 10 行（至少 4 位/把）\n顺序必须与对方一致，空行自动忽略</string>
     <string name="key_show">显示</string>
     <string name="key_hide">隐藏</string>
     <string name="label_input_encrypt">输入原文（要保密的内容）</string>
@@ -28,6 +30,6 @@
     <string name="key_too_short">密钥至少需要 6 位数字或字母</string>
     <string name="input_empty">请先输入内容</string>
     <string name="keyspace_idle">密钥空间：输入密钥后实时估算</string>
-    <string name="deriving">正在推导密钥（PBKDF2 × 600,000 次迭代）…</string>
+    <string name="deriving">正在推导密钥（%1$sPBKDF2 × 600,000 次迭代）…</string>
     <string name="deriving_short">处理中…</string>
 </resources>
