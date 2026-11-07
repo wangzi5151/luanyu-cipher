@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Run crypto self-test
+        shell: bash
+        run: |
+          set -o pipefail
+          bash tools/run-selftest.sh | tee selftest.log
+
+      - name: Publish self-test summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f selftest.log ]; then
+            {
+              echo '### 乱语自测结果'
+              echo '```'
+              cat selftest.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload self-test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luanyu-selftest-log
+          path: selftest.log
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Run JUnit tests
+        shell: bash
+        run: |
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -n 1)
+          echo "Using aapt2: $AAPT2"
+          ./gradlew testDebugUnitTest --console=plain -Pandroid.aapt2FromMavenOverride="$AAPT2"

@@ -227,6 +227,28 @@ public class CipherSelfTest {
         // v1 旧密文仍可解(回归)
         check(CryptoCore.decrypt(KEY, CryptoCore.encrypt(KEY, "v1回归")).equals("v1回归"), "v1 回归");
 
+        System.out.println("== 12. v2 截断/边界/错误密钥 ==");
+        String[] k2 = {"Xk7#9pQm", "alpha2026"};
+        String v2long = CryptoCore.encryptMulti(k2, repeat("长文本边界测试 ", 200));
+        byte[] v2frame = CryptoCore.decode(v2long);
+        expectReject(() -> CryptoCore.decryptMulti(k2, v2long.substring(0, v2long.length() - 4)), "v2 截断 4 字符");
+        expectReject(() -> CryptoCore.decryptMulti(k2, v2long.substring(0, v2long.length() - 1)), "v2 截断 1 字符(长度%4==1)");
+        int minV2Frame = CryptoCore.V2_HEADER_LEN + CryptoCore.IV_LEN + CryptoCore.TAG_LEN_BITS / 8;
+        String tooShort = CryptoCore.encode(Arrays.copyOf(v2frame, minV2Frame - 1));
+        expectReject(() -> CryptoCore.decryptMulti(k2, tooShort), "v2 帧不足最小长度");
+        byte[] badN0 = v2frame.clone();
+        badN0[3] = 0;
+        byte[] badN11 = v2frame.clone();
+        badN11[3] = 11;
+        expectReject(() -> CryptoCore.decryptMulti(k2, CryptoCore.encode(badN0)), "v2 密钥数 n=0 拒绝");
+        expectReject(() -> CryptoCore.decryptMulti(k2, CryptoCore.encode(badN11)), "v2 密钥数 n=11 拒绝");
+        expectReject(() -> CryptoCore.decryptMulti(new String[]{k2[0], "alpha2027"}, v2long), "v2 其中一把密钥错误");
+        expectReject(() -> CryptoCore.decryptMulti(new String[]{k2[1], k2[0]}, v2long), "v2 密钥顺序错误");
+        expectReject(() -> CryptoCore.encryptMulti(new String[]{null, "  ", "abc"}, "x"), "v2 空/过短密钥拒绝");
+        String v2one = CryptoCore.encryptMulti(new String[]{"abcdef"}, "v2单把");
+        expectReject(() -> CryptoCore.decryptMulti(new String[]{"abcdeg"}, v2one), "v2 单把错误密钥");
+        check(CryptoCore.decryptMulti(new String[]{"abcdef"}, v2one).equals("v2单把"), "v2 单把正确密钥");
+
         System.out.println();
         System.out.println("========================================");
         System.out.println("结果: " + passed + " 通过, " + failed + " 失败");

@@ -64,6 +64,7 @@
    再乘上 PBKDF2 每猜一次就要算 60 万次 HMAC-SHA256 的成本，暴力破解不现实。**密钥 7 位以上即可稳超万亿量级**，App 内会实时显示当前密钥的空间大小。
 5. **多密钥组合空间**（高级模式）：链式推导意味着攻击者必须**同时猜对全部密钥且顺序一致**——组合数是各把密钥空间之积：3 把混合密钥 ≈ 10³⁵ 量级，10 把更是天文数字（App 用对数计算，不会溢出）。
 6. **零权限**：应用没有 `INTERNET` 权限，从系统层面就无法联网，代码没有任何通道把密钥或原文送出去。
+7. **密钥材料及时清零**：派生出的 AES 密钥 `dk` 以及多密钥链式推导的中间密钥，在加密/解密成功与异常路径都会于 `finally` 中清零；链式推导异常时，拼接出的中间盐也会一并清除，避免敏感材料因异常分支残留。
 
 **诚实的风险提示**：
 
@@ -103,10 +104,18 @@
 ### 加密核心自测（不依赖任何测试框架）
 
 ```bash
-tools/run-selftest.sh
+bash tools/run-selftest.sh
 ```
 
-覆盖 82 项断言：往返一致性（含中文/emoji/6 万字符长文本/空文本）、同文不同密、错误密钥拒绝、逐字节篡改拒绝、截断/追加拒绝、格式校验、密钥长度下限、空白规整、编解码层随机字节往返、密钥空间估算与格式化、多密钥链式往返/顺序敏感/数量边界/向后兼容 v1。
+自测覆盖 92 项断言：往返一致性（含中文/emoji/6 万字符长文本/空文本）、同文不同密、错误密钥拒绝、逐字节篡改拒绝、截断/追加拒绝、格式校验、密钥长度下限、空白规整、编解码层随机字节往返、密钥空间估算与格式化、多密钥链式往返/顺序敏感/数量边界/向后兼容 v1，以及 v2 截断、最小帧、密钥数 n=0/11、错误密钥与顺序等边界。
+
+### JUnit 单元测试
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+`app/src/test` 下的 `CryptoCoreTest` 覆盖 v2 往返、错误密钥/顺序、密钥数量与长度边界、截断、帧头损坏等场景。
 
 ---
 
@@ -115,10 +124,14 @@ tools/run-selftest.sh
 ```
 app/src/main/java/com/wangzi5151/luanyucipher/
 ├── MainActivity.java          # 界面与交互（后台线程执行 KDF，防 ANR）
-└── crypto/CryptoCore.java     # Luanyu v1：PBKDF2 + AES-GCM + 乱序字母表编解码 + 密钥空间估算
+└── crypto/CryptoCore.java     # Luanyu v1/v2：PBKDF2 + AES-GCM + 乱序字母表编解码 + 密钥空间估算
+app/src/test/java/com/wangzi5151/luanyucipher/crypto/
+└── CryptoCoreTest.java        # JUnit：v2 边界/截断/错误密钥测试
 tools/
-├── CipherSelfTest.java        # 82 项断言的独立自测
+├── CipherSelfTest.java        # 92 项断言的独立自测
 └── run-selftest.sh            # 一键编译并运行自测
+.github/workflows/
+└── ci.yml                     # 自测 + JUnit CI
 ```
 
 ## 免责声明

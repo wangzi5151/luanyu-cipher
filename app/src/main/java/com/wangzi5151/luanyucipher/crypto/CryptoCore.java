@@ -107,6 +107,7 @@ public final class CryptoCore {
         if (plaintext == null) {
             throw new LuanyuException("原文不能为空");
         }
+        byte[] dk = null;
         try {
             SecureRandom rng = new SecureRandom();
             byte[] salt = new byte[SALT_LEN];
@@ -115,7 +116,7 @@ public final class CryptoCore {
             rng.nextBytes(iv);
 
             byte[] header = buildHeader(version, n, salt);
-            byte[] dk = version == VERSION1
+            dk = version == VERSION1
                     ? deriveKey(keys[0], salt)
                     : deriveKeyMulti(keys, salt);
 
@@ -124,7 +125,6 @@ public final class CryptoCore {
                     new GCMParameterSpec(TAG_LEN_BITS, iv));
             gcm.updateAAD(header);
             byte[] ct = gcm.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            Arrays.fill(dk, (byte) 0);
 
             byte[] frame = new byte[header.length + IV_LEN + ct.length];
             System.arraycopy(header, 0, frame, 0, header.length);
@@ -133,6 +133,10 @@ public final class CryptoCore {
             return encode(frame);
         } catch (GeneralSecurityException e) {
             throw new LuanyuException("加密失败: " + e.getMessage(), e);
+        } finally {
+            if (dk != null) {
+                Arrays.fill(dk, (byte) 0);
+            }
         }
     }
 
@@ -202,8 +206,9 @@ public final class CryptoCore {
         byte[] iv = Arrays.copyOfRange(frame, headerLen, headerLen + IV_LEN);
         byte[] ct = Arrays.copyOfRange(frame, headerLen + IV_LEN, frame.length);
 
+        byte[] dk = null;
         try {
-            byte[] dk = ver == VERSION1
+            dk = ver == VERSION1
                     ? deriveKey(keys[0], salt)
                     : deriveKeyMulti(keys, salt);
             Cipher gcm = Cipher.getInstance("AES/GCM/NoPadding");
@@ -211,12 +216,15 @@ public final class CryptoCore {
                     new GCMParameterSpec(TAG_LEN_BITS, iv));
             gcm.updateAAD(header);
             byte[] plain = gcm.doFinal(ct);
-            Arrays.fill(dk, (byte) 0);
             return new String(plain, StandardCharsets.UTF_8);
         } catch (AEADBadTagException e) {
             throw new LuanyuException("解密失败：密钥不正确，或乱语已被篡改/损坏");
         } catch (GeneralSecurityException e) {
             throw new LuanyuException("解密失败：密钥不正确，或乱语已被篡改/损坏", e);
+        } finally {
+            if (dk != null) {
+                Arrays.fill(dk, (byte) 0);
+            }
         }
     }
 
@@ -266,22 +274,39 @@ public final class CryptoCore {
     /** 链式推导: K1=PBKDF2(k1,salt); Ki=PBKDF2(ki, K(i-1)||salt)。顺序不同 => 密钥不同。 */
     static byte[] deriveKeyMulti(String[] keys, byte[] salt) throws GeneralSecurityException {
         byte[] k = null;
-        for (String key : keys) {
-            byte[] s;
-            if (k == null) {
-                s = salt;
-            } else {
-                s = new byte[k.length + salt.length];
-                System.arraycopy(k, 0, s, 0, k.length);
-                System.arraycopy(salt, 0, s, k.length, salt.length);
+        try {
+            for (String key : keys) {
+                byte[] s;
+                boolean wipeSalt = false;
+                if (k == null) {
+                    s = salt;
+                } else {
+                    s = new byte[k.length + salt.length];
+                    System.arraycopy(k, 0, s, 0, k.length);
+                    System.arraycopy(salt, 0, s, k.length, salt.length);
+                    wipeSalt = true;
+                }
+                byte[] next;
+                try {
+                    next = deriveKey(key, s);
+                } finally {
+                    if (wipeSalt) {
+                        Arrays.fill(s, (byte) 0);
+                    }
+                }
+                if (k != null) {
+                    Arrays.fill(k, (byte) 0);
+                }
+                k = next;
             }
-            byte[] next = deriveKey(key, s);
+            byte[] result = k;
+            k = null;
+            return result;
+        } finally {
             if (k != null) {
                 Arrays.fill(k, (byte) 0);
             }
-            k = next;
         }
-        return k;
     }
 
     static String normalize(String passphrase) {

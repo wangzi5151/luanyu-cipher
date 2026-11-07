@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # 乱语加密核心自测: 编译 crypto 源码 + 自测, 运行全部断言
 set -e
 cd "$(dirname "$0")/.."
